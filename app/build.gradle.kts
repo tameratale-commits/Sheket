@@ -46,6 +46,37 @@ android {
           }
         }
       }
+      if (!keystoreFile.exists()) {
+        try {
+          println("debug.keystore not found. Generating a new debug keystore using keytool...")
+          val javaHome = System.getProperty("java.home")
+          val isWindows = System.getProperty("os.name").lowercase().contains("win")
+          val keytoolBinary = file("$javaHome/bin/" + if (isWindows) "keytool.exe" else "keytool")
+          val keytoolCmd = if (keytoolBinary.exists()) keytoolBinary.absolutePath else "keytool"
+          
+          val process = ProcessBuilder(
+            keytoolCmd,
+            "-genkey",
+            "-v",
+            "-keystore", keystoreFile.absolutePath,
+            "-storepass", "android",
+            "-alias", "androiddebugkey",
+            "-keypass", "android",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000",
+            "-dname", "CN=Android Debug,O=Android,C=US"
+          ).inheritIO().start()
+          val exitCode = process.waitFor()
+          if (exitCode == 0) {
+            println("Successfully generated a new debug.keystore at ${keystoreFile.absolutePath}")
+          } else {
+            println("keytool exited with error code: $exitCode")
+          }
+        } catch (e: Exception) {
+          println("Failed to generate debug keystore with keytool: ${e.message}")
+        }
+      }
       storeFile = keystoreFile
       storePassword = "android"
       keyAlias = "androiddebugkey"
