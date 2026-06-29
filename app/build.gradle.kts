@@ -1,4 +1,5 @@
 import com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy
+import java.io.File
 import java.util.Base64
 
 plugins {
@@ -33,51 +34,7 @@ android {
       keyPassword = System.getenv("KEY_PASSWORD")
     }
     create("debugConfig") {
-      val keystoreFile = file("${rootDir}/debug.keystore")
-      if (!keystoreFile.exists()) {
-        val base64File = file("${rootDir}/debug.keystore.base64")
-        if (base64File.exists()) {
-          try {
-            val bytes = Base64.getDecoder().decode(base64File.readText().trim())
-            keystoreFile.writeBytes(bytes)
-            println("Successfully decoded debug.keystore.base64 to debug.keystore")
-          } catch (e: Exception) {
-            println("Failed to decode debug.keystore.base64: ${e.message}")
-          }
-        }
-      }
-      if (!keystoreFile.exists()) {
-        try {
-          println("debug.keystore not found. Generating a new debug keystore using keytool...")
-          val javaHome = System.getProperty("java.home")
-          val isWindows = System.getProperty("os.name").lowercase().contains("win")
-          val keytoolBinary = file("$javaHome/bin/" + if (isWindows) "keytool.exe" else "keytool")
-          val keytoolCmd = if (keytoolBinary.exists()) keytoolBinary.absolutePath else "keytool"
-          
-          val process = ProcessBuilder(
-            keytoolCmd,
-            "-genkey",
-            "-v",
-            "-keystore", keystoreFile.absolutePath,
-            "-storepass", "android",
-            "-alias", "androiddebugkey",
-            "-keypass", "android",
-            "-keyalg", "RSA",
-            "-keysize", "2048",
-            "-validity", "10000",
-            "-dname", "CN=Android Debug,O=Android,C=US"
-          ).inheritIO().start()
-          val exitCode = process.waitFor()
-          if (exitCode == 0) {
-            println("Successfully generated a new debug.keystore at ${keystoreFile.absolutePath}")
-          } else {
-            println("keytool exited with error code: $exitCode")
-          }
-        } catch (e: Exception) {
-          println("Failed to generate debug keystore with keytool: ${e.message}")
-        }
-      }
-      storeFile = keystoreFile
+      storeFile = file("${rootDir}/debug.keystore")
       storePassword = "android"
       keyAlias = "androiddebugkey"
       keyPassword = "android"
@@ -173,3 +130,60 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+tasks.register("generateDebugKeystore") {
+  val rootDirFile = rootDir
+  val keystoreFile = File(rootDirFile, "debug.keystore")
+  val base64File = File(rootDirFile, "debug.keystore.base64")
+  outputs.file(keystoreFile)
+  
+  doLast {
+    if (!keystoreFile.exists()) {
+      if (base64File.exists()) {
+        try {
+          val bytes = Base64.getDecoder().decode(base64File.readText().trim())
+          keystoreFile.writeBytes(bytes)
+          println("Successfully decoded debug.keystore.base64 to debug.keystore")
+        } catch (e: Exception) {
+          println("Failed to decode debug.keystore.base64: ${e.message}")
+        }
+      }
+    }
+    if (!keystoreFile.exists()) {
+      try {
+        println("debug.keystore not found. Generating a new debug keystore using keytool...")
+        val javaHome = System.getProperty("java.home")
+        val isWindows = System.getProperty("os.name").lowercase().contains("win")
+        val keytoolBinary = File(File(javaHome, "bin"), if (isWindows) "keytool.exe" else "keytool")
+        val keytoolCmd = if (keytoolBinary.exists()) keytoolBinary.absolutePath else "keytool"
+        
+        val process = ProcessBuilder(
+          keytoolCmd,
+          "-genkey",
+          "-v",
+          "-keystore", keystoreFile.absolutePath,
+          "-storepass", "android",
+          "-alias", "androiddebugkey",
+          "-keypass", "android",
+          "-keyalg", "RSA",
+          "-keysize", "2048",
+          "-validity", "10000",
+          "-dname", "CN=Android Debug,O=Android,C=US"
+        ).inheritIO().start()
+        val exitCode = process.waitFor()
+        if (exitCode == 0) {
+          println("Successfully generated a new debug.keystore at ${keystoreFile.absolutePath}")
+        } else {
+          println("keytool exited with error code: $exitCode")
+        }
+      } catch (e: Exception) {
+        println("Failed to generate debug keystore with keytool: ${e.message}")
+      }
+    }
+  }
+}
+
+tasks.matching { it.name.startsWith("validateSigning") || it.name.startsWith("package") }.configureEach {
+  dependsOn("generateDebugKeystore")
+}
+
