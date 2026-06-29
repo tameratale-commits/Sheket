@@ -1,0 +1,6 @@
+{
+  "name": "የሱቅ ሂሳብ መዝገብ (Store Ledger)",
+  "description": "ሱቅ የሂሳብ መዝገብ መያዣ - A professional bilingual store bookkeeping app for managing daily sales, expenses, and customer debt balances (እዳ).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
